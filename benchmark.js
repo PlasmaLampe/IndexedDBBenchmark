@@ -47,6 +47,16 @@ function loadItemViaId_promise(id) {
 	});
 }
 
+function outputToDom(str) {
+	const t = document.createTextNode(str);
+
+	// append str message in UI
+	document.getElementById('output').appendChild(t);
+
+	// append line break
+	document.getElementById('output').appendChild(document.createElement('br'))
+}
+
 function clearDB_promise() {
 	let tx = db.transaction("Benchmark", "readwrite");
 	let objectStore = tx.objectStore("Benchmark");
@@ -60,9 +70,40 @@ function clearDB_promise() {
 	}); 
 }
 
+function stringifyLogMessage(msg, paramArr) {
+	const logToken = msg.split(' ');
+
+	let stringifiedMessage = "";
+	let addingArgumentNr = 1;
+
+	for(let pos = 0; pos < logToken.length; pos++){
+		if(logToken[pos].indexOf('%d') !== -1 || logToken[pos].indexOf('%s') !== -1){
+			logToken[pos] = logToken[pos].replace('%d', paramArr[addingArgumentNr])
+											.replace('%s', paramArr[addingArgumentNr]);
+
+			addingArgumentNr++;
+		}
+
+		stringifiedMessage += " " + logToken[pos]; 
+	}
+
+	return stringifiedMessage;
+}
+
 // ------------------------------------------------------
 // App bootstrap
 // ------------------------------------------------------
+
+// Hijack log
+(function(){
+    var oldLog = console.log;
+    console.log = function (message) {
+        
+		outputToDom(stringifyLogMessage(message, arguments));
+
+        oldLog.apply(console, arguments);
+    };
+})();
 
 // Open (or create) the database
 var open = indexedDB.open("MyDatabase", 2);
@@ -78,6 +119,8 @@ open.onupgradeneeded = function() {
 open.onsuccess = function() {
     // open database
     db = open.result;
+
+	console.log('DB connection open...');
 
     clearDB_promise().then(() => {
     	benchmark(db);
@@ -113,7 +156,7 @@ function benchmarkTestRunner(db, idNumber, nameStr, descStr, testFunc) {
 
 function benchmark(db) {
 
-	benchmarkTestRunner(db, 1, 'TCInsert100000', 'Inserting 100.000 entries with 25 attributes in indexedDB', (db) => {
+	benchmarkTestRunner(db, 1, 'TCInsert100000_25', 'Inserting 100.000 entries with 25 attributes in indexedDB', (db) => {
 		// preparation phase: do not measure time here
 		let tx = db.transaction("Benchmark", "readwrite");
 		const items = createJSONStructureArr(25,100000,0);
@@ -143,7 +186,7 @@ function benchmark(db) {
 		return clearDB_promise();
 	}).then(() => {
 
-		return benchmarkTestRunner(db, 2, 'TCInsert100000', 'Inserting 100.000 entries with 100 attributes in indexedDB', (db) => {
+		return benchmarkTestRunner(db, 2, 'TCInsert100000_100', 'Inserting 100.000 entries with 100 attributes in indexedDB', (db) => {
 			// preparation phase: do not measure time here
 			let tx = db.transaction("Benchmark", "readwrite");
 			const items = createJSONStructureArr(100,100000,0);
@@ -174,7 +217,7 @@ function benchmark(db) {
 		return clearDB_promise();
 	}).then(() => {
 
-		return benchmarkTestRunner(db, 3, 'TCInsert1000000', 'Inserting 1.000.000 entries with 100 attributes in indexedDB', (db) => {
+		return benchmarkTestRunner(db, 3, 'TCInsert1000000_100', 'Inserting 1.000.000 entries with 100 attributes in indexedDB', (db) => {
 			// preparation phase: do not measure time here
 			let tx = db.transaction("Benchmark", "readwrite");
 			const items = createJSONStructureArr(100,1000000,0);
