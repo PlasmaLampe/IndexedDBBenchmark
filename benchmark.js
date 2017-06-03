@@ -28,19 +28,10 @@ function createJSONStructureArr(propertyAmount, amountItems, idOffset) {
 }
 
 function storeInThisTransaction(tx, dataItem) {
-    //var tx = db.transaction("MyObjectStore", "readwrite");
     let store = tx.objectStore("Benchmark");
     //let index = store.index("NameIndex");
 
     store.put(dataItem);
-}
-
-function storeInNewTransaction() {
-	let tx = db.transaction("Benchmark", "readwrite");
-    let store = tx.objectStore("Benchmark");
-    //let index = store.index("NameIndex");
-
-    throw 'niy'
 }
 
 function loadItemViaId_promise(id) {
@@ -101,30 +92,133 @@ open.onsuccess = function() {
 // ------------------------------------------------------
 // Main Benchmark Application
 // ------------------------------------------------------
+function benchmarkTestRunner(db, idNumber, nameStr, descStr, testFunc) {
+	console.log("");
+	console.log("## Running Test Case %d (%s): %s", idNumber, nameStr, descStr);
+
+	return new Promise((resolve, reject) => {
+	
+		testFunc(db).then((startDate) => {
+			console.log("Test case %d took %d ms", idNumber, (Date.now() - startDate));
+			
+			resolve();
+		}).catch((error) => {
+			console.error('Could not run test case %d (%s)... Reason: $O', idNumber, nameStr, error)
+			
+			reject();
+		});
+
+	});
+}
+
 function benchmark(db) {
 
-	// TC1: add 100 items
-	let tx = db.transaction("Benchmark", "readwrite");
-	const items = createJSONStructureArr(25,100,0);
+	benchmarkTestRunner(db, 1, 'TCInsert100000', 'Inserting 100.000 entries with 25 attributes in indexedDB', (db) => {
+		// preparation phase: do not measure time here
+		let tx = db.transaction("Benchmark", "readwrite");
+		const items = createJSONStructureArr(25,100000,0);
 
-	for(const item of items){
-		storeInThisTransaction(tx, item);
-	}
+		console.log('preparation ended ... starting measurement...');
 
-	let returnPromise = new Promise((resolve, reject) => {
-		tx.oncomplete = function() {
-        	resolve();
-    	};
-	});
+		// data items have been created => start measuring
+		const startDate = Date.now();
 
-	returnPromise.then(() => {
-		// TC2: load items
-		loadItemViaId_promise(1).then((item) => {
-			console.log(item);
+		for(const item of items){
+			storeInThisTransaction(tx, item);
+		}
+
+		return new Promise((resolve, reject) => {
+
+			tx.oncomplete = function() {
+				resolve(startDate);
+			};
+
+			tx.onerror = function () {
+				reject();
+			}
+
+		});
+
+	}).then(() => {
+		return clearDB_promise();
+	}).then(() => {
+
+		return benchmarkTestRunner(db, 2, 'TCInsert100000', 'Inserting 100.000 entries with 100 attributes in indexedDB', (db) => {
+			// preparation phase: do not measure time here
+			let tx = db.transaction("Benchmark", "readwrite");
+			const items = createJSONStructureArr(100,100000,0);
+
+			console.log('preparation ended ... starting measurement...');
+
+			// data items have been created => start measuring
+			const startDate = Date.now();
+
+			for(const item of items){
+				storeInThisTransaction(tx, item);
+			}
+
+			return new Promise((resolve, reject) => {
+
+				tx.oncomplete = function() {
+					resolve(startDate);
+				};
+
+				tx.onerror = function () {
+					reject();
+				}
+
+			});
+
+		});
+	}).then(() => {
+		return clearDB_promise();
+	}).then(() => {
+
+		return benchmarkTestRunner(db, 3, 'TCInsert1000000', 'Inserting 1.000.000 entries with 100 attributes in indexedDB', (db) => {
+			// preparation phase: do not measure time here
+			let tx = db.transaction("Benchmark", "readwrite");
+			const items = createJSONStructureArr(100,1000000,0);
+
+			console.log('preparation ended ... starting measurement...');
+
+			// data items have been created => start measuring
+			const startDate = Date.now();
+
+			for(const item of items){
+				storeInThisTransaction(tx, item);
+			}
+
+			return new Promise((resolve, reject) => {
+
+				tx.oncomplete = function() {
+					resolve(startDate);
+				};
+
+				tx.onerror = function () {
+					reject();
+				}
+
+			});
+
 		});
 	});
 
-	// FIXME: Create chained test cases and measure time
+	/*
+	returnPromise.then(() => {
+		// TC2: load items
+
+
+		loadItemViaId_promise(1).then((item) => {
+			console.log(item);
+		});
+	});*/
+
+	// TODO:
+	// add bootstrap
+
+	// append output to DOM
+
+	// add GETALL TC for every sized DB
 
 	// Include test case without primary key!!!! I want the timing there
 
