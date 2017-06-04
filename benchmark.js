@@ -29,7 +29,6 @@ function createJSONStructureArr(propertyAmount, amountItems, idOffset) {
 
 function storeInThisTransaction(tx, dataItem) {
     let store = tx.objectStore("Benchmark");
-    //let index = store.index("NameIndex");
 
     store.put(dataItem);
 }
@@ -44,6 +43,31 @@ function loadItemViaId_promise(id) {
 		getItem.onsuccess = () => {
 			resolve(getItem.result);
 		}
+	});
+}
+
+function getAllItems_promise(tx) {
+    let store = tx.objectStore("Benchmark");
+    let items = [];
+
+    let cursorRequest = store.openCursor();
+
+	return new Promise((resolve, reject) => {
+		cursorRequest.onerror = function(error) {
+			console.log(error);
+			reject(error);
+		};
+	
+		cursorRequest.onsuccess = function(evt) {                    
+			var cursor = evt.target.result;
+			if (cursor) {
+				items.push(cursor.value);
+				cursor.continue();
+			} else {
+				// no cursor means => we have read all data
+				resolve(items)
+			}
+		};
 	});
 }
 
@@ -183,10 +207,39 @@ function benchmark(db) {
 		});
 
 	}).then(() => {
+
+		return benchmarkTestRunner(db, 2, 'TCRead100000_25', 'Reading 100.000 entries with 25 attributes in indexedDB', (db) => {
+			// preparation phase: do not measure time here
+			let tx = db.transaction("Benchmark", "readwrite");
+
+			console.log('preparation ended ... starting measurement...');
+
+			// transaction has been created => start measuring
+			const startDate = Date.now();
+
+			// data items have been created => start measuring
+			getAllItems_promise(tx).then((itemArr) => {
+				console.log('Read %d items', itemArr.length);
+			});
+
+			return new Promise((resolve, reject) => {
+
+				tx.oncomplete = function() {
+					resolve(startDate);
+				};
+
+				tx.onerror = function () {
+					reject();
+				}
+
+			});
+		});
+
+	}).then(() => {
 		return clearDB_promise();
 	}).then(() => {
 
-		return benchmarkTestRunner(db, 2, 'TCInsert100000_100', 'Inserting 100.000 entries with 100 attributes in indexedDB', (db) => {
+		return benchmarkTestRunner(db, 3, 'TCInsert100000_100', 'Inserting 100.000 entries with 100 attributes in indexedDB', (db) => {
 			// preparation phase: do not measure time here
 			let tx = db.transaction("Benchmark", "readwrite");
 			const items = createJSONStructureArr(100,100000,0);
@@ -217,7 +270,7 @@ function benchmark(db) {
 		return clearDB_promise();
 	}).then(() => {
 
-		return benchmarkTestRunner(db, 3, 'TCInsert1000000_100', 'Inserting 1.000.000 entries with 100 attributes in indexedDB', (db) => {
+		return benchmarkTestRunner(db, 4, 'TCInsert1000000_100', 'Inserting 1.000.000 entries with 100 attributes in indexedDB', (db) => {
 			// preparation phase: do not measure time here
 			let tx = db.transaction("Benchmark", "readwrite");
 			const items = createJSONStructureArr(100,1000000,0);
@@ -244,28 +297,40 @@ function benchmark(db) {
 			});
 
 		});
-	});
+	}).then(() => {
 
-	/*
-	returnPromise.then(() => {
-		// TC2: load items
+		return benchmarkTestRunner(db, 5, 'TCRead1000000_100', 'Reading 1.000.000 entries with 100 attributes in indexedDB', (db) => {
+			// preparation phase: do not measure time here
+			let tx = db.transaction("Benchmark", "readwrite");
 
+			console.log('preparation ended ... starting measurement...');
 
-		loadItemViaId_promise(1).then((item) => {
-			console.log(item);
+			// transaction has been created => start measuring
+			const startDate = Date.now();
+
+			// data items have been created => start measuring
+			getAllItems_promise(tx).then((itemArr) => {
+				console.log('Read %d items', itemArr.length);
+			});
+
+			return new Promise((resolve, reject) => {
+
+				tx.oncomplete = function() {
+					resolve(startDate);
+				};
+
+				tx.onerror = function () {
+					reject();
+				}
+
+			});
 		});
-	});*/
 
-	// TODO:
-	// add bootstrap
-
-	// append output to DOM
-
-	// add GETALL TC for every sized DB
-
-	// Include test case without primary key!!!! I want the timing there
-
-
-
-
+	}).then(() => {
+		return clearDB_promise();
+	}).then(() => {
+		console.log('#########################################');
+		console.log('>> Benchmark has finished...');
+		console.log('#########################################');
+	});
 }
