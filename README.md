@@ -4,7 +4,7 @@ The small project is used to check the performance of the indexedDB in various s
 ## To use the benchmark
 * Just clone the repo and run the index.html file
 * The UI output will freeze during the benchmark a couple of times
-* This happens because the code is single threaded and, thus, call with heavy resource demand (e.g., the db calls) block the UI while they are executed
+* This happens because the code is single threaded and, thus, calls with heavy resource demand (e.g., the db calls) block the UI while they are executed
 
 ## If you want to add your own benchmarking tests
 * Open the benchmark.js file and scroll down to the bottom
