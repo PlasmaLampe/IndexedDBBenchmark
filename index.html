@@ -6,13 +6,23 @@
 	<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" integrity="sha384-BVYiiSIFeK1dGmJRAkycuHAHRg32OmUcww7on3RYdg4Va+PmSTsz/K68vbdEjh4u" crossorigin="anonymous">
 	
 	<script src="bundle.js"></script>
+
+	<style>
+		.benchmark__content {
+    		width: 800px;
+    		height: 400px;
+    		overflow: scroll;
+		}
+	</style>
 </head>
 <body>
 	<div style="margin:20px">
 
 		<h2> IndexedDB Benchmark </h2>
 		<h4> ## Console output ## </h4>
-		<p id="output"></p>
+		<div id='mainView' class="benchmark__content">
+			<p id="output"></p>
+		</div>
 		<h4> ## Results ## </h4>
 		<div id="resultTable">
 			<p> See results as soon as benchmark has finished... </p>

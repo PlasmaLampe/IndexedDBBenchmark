@@ -53,6 +53,32 @@ function loadItemViaId_promise(id) {
 	});
 }
 
+function getItemById_promise(tx, id) {
+    let store = tx.objectStore("Benchmark");
+    let items = [];
+	let index = store.index('id');
+
+    let cursorRequest = index.openCursor(IDBKeyRange.only(id));
+
+	return new Promise((resolve, reject) => {
+		cursorRequest.onerror = function(error) {
+			console.log(error);
+			reject(error);
+		};
+	
+		cursorRequest.onsuccess = function(evt) {                    
+			var cursor = evt.target.result;
+			if (cursor) {
+				items.push(cursor.value);
+				cursor.continue();
+			} else {
+				// no cursor means => we have read all data
+				resolve(items)
+			}
+		};
+	});
+}
+
 function getAllItems_promise(tx) {
     let store = tx.objectStore("Benchmark");
     let items = [];
@@ -78,6 +104,11 @@ function getAllItems_promise(tx) {
 	});
 }
 
+function scrollToBottom(id){
+   var div = document.getElementById(id);
+   div.scrollTop = div.scrollHeight - div.clientHeight;
+}
+
 function outputToDom(str) {
 	const t = document.createTextNode(str);
 
@@ -86,6 +117,8 @@ function outputToDom(str) {
 
 	// append line break
 	document.getElementById('output').appendChild(document.createElement('br'))
+
+	scrollToBottom('mainView');
 }
 
 function updateUIResultTable(data) {
@@ -154,14 +187,31 @@ function stringifyLogMessage(msg, paramArr) {
 })();
 
 // Open (or create) the database
-var open = indexedDB.open("MyDatabase", 2);
+var open = indexedDB.open("MyDatabase", 3);
+
+/**
+ * Contains a reference to the database
+ */
 var db = null;
 
 // Create the schema
 open.onupgradeneeded = function() {
     var db = open.result;
-    var store = db.createObjectStore("Benchmark", {keyPath: "id"});
-    var index = store.createIndex("prop1", "prop1");
+	var store = null;
+
+	try{
+		store = db.createObjectStore("Benchmark", {keyPath: "id"});
+	} catch( e ){
+		console.log('Removing old object store ...');
+
+		db.deleteObjectStore("Benchmark");
+
+		console.log('Creating new object store ...');
+		store = db.createObjectStore("Benchmark", {keyPath: "id"});
+	}
+
+    store.createIndex("id", "id");
+	store.createIndex("prop1", "prop1");
 };
 
 open.onsuccess = function() {
@@ -263,13 +313,53 @@ function writeAndReadBenchmarkRun(amountItems, amountProperties, testCaseIdStart
 			}).then(() => {
 
 			/**
-			 * "Writing" benchmark test case
+			 * "Reading" random samples db benchmark test case
 			 */
-			benchmarkTestRunner(db, (testCaseIdStartNumber + 1), 'TCInsert'+amountItems+'_'+amountProperties, 
-				'Reading '+amountItems+' entries with ' + amountProperties + ' attributes in indexedDB', (db) => {
+			benchmarkTestRunner(db, (testCaseIdStartNumber + 1), 'TCRead1_'+amountProperties+'_'+amountItems, 
+				'Reading a random entry with ' + amountProperties + ' attributes in indexedDB from db with '+
+				amountItems +' items ', (db) => {
 	
 				getNewestBenchmarkResultObjectForId(testCaseIdStartNumber + 1).items = amountItems;
 				getNewestBenchmarkResultObjectForId(testCaseIdStartNumber + 1).itemProp = amountProperties;
+
+				// preparation phase: do not measure time here
+				let tx = db.transaction("Benchmark", "readwrite");
+
+				console.log('preparation ended ... starting measurement at %s... ', Date());
+
+				// transaction has been created => start measuring
+				const startDate = Date.now();
+
+				const readId = Math.floor(Math.random() * amountProperties);
+
+				console.log("Reading item with id %d ...", readId);
+
+				// data items have been created => start measuring
+				getItemById_promise(tx, readId).then((itemArr) => {
+					console.log('Read %d items', itemArr.length);
+				});
+
+				return new Promise((resolve, reject) => {
+
+					tx.oncomplete = function() {
+						resolve(startDate);
+					};
+
+					tx.onerror = function () {
+						reject();
+					}
+
+				});
+			}).then(() => {
+
+			/**
+			 * "Reading" complete db benchmark test case
+			 */
+			benchmarkTestRunner(db, (testCaseIdStartNumber + 2), 'TCInsert'+amountItems+'_'+amountProperties, 
+				'Reading '+amountItems+' entries with ' + amountProperties + ' attributes in indexedDB', (db) => {
+	
+				getNewestBenchmarkResultObjectForId(testCaseIdStartNumber + 2).items = amountItems;
+				getNewestBenchmarkResultObjectForId(testCaseIdStartNumber + 2).itemProp = amountProperties;
 
 				// preparation phase: do not measure time here
 				let tx = db.transaction("Benchmark", "readwrite");
@@ -305,15 +395,16 @@ function writeAndReadBenchmarkRun(amountItems, amountProperties, testCaseIdStart
 
 			});
 		});
+		});
 	});
 }
 
 function runBenchmarkTestSequence() {
 	return new Promise((resolve, reject) => {
 		writeAndReadBenchmarkRun(2500,25,1,db).then(() => {
-			writeAndReadBenchmarkRun(2500,100,3,db).then(() => {
-				writeAndReadBenchmarkRun(5000,100,5,db).then(() => {
-					writeAndReadBenchmarkRun(10000,100,7,db).then(() => {
+			writeAndReadBenchmarkRun(2500,100,4,db).then(() => {
+				writeAndReadBenchmarkRun(5000,100,7,db).then(() => {
+					writeAndReadBenchmarkRun(10000,100,10,db).then(() => {
 						resolve();
 					});	
 				});

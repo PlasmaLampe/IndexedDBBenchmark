@@ -63,11 +63,129 @@
 /******/ 	__webpack_require__.p = "";
 /******/
 /******/ 	// Load entry module and return exports
-/******/ 	return __webpack_require__(__webpack_require__.s = 1);
+/******/ 	return __webpack_require__(__webpack_require__.s = 2);
 /******/ })
 /************************************************************************/
 /******/ ([
 /* 0 */
+/***/ (function(module, exports, __webpack_require__) {
+
+"use strict";
+/* jslint node: true */
+
+
+function isDefined(x) {
+    return x !== undefined && x !== null;
+}
+
+function tablify(options) {
+    options = options || {};
+    var tableData = options.data || [];
+    var header = options.header;
+    var border = isDefined(options.border) ? options.border : 1;
+    var cellspacing = isDefined(options.cellspacing) ? options.cellspacing : 0;
+    var cellpadding = isDefined(options.cellpadding) ? options.cellpadding : 0;
+    var tableId = options.table_id || 'tablify';
+    var tableClass = options.table_class || 'tablify';
+    var header_mapping = options.header_mapping || {};
+    var pretty = options.pretty;
+    if (pretty === undefined) {
+        pretty = true;
+    }
+    var isSingleRow = false;
+    if (!Array.isArray(tableData)) {
+        isSingleRow = true;
+        tableData = [tableData];
+    }
+
+    // If header exists in options use that else create it.
+    if (!Array.isArray(header)) {
+        var headerObj = {};
+        tableData.forEach(function (json) {
+            var keys = Object.keys(json);
+            keys.forEach(function (key) {
+                headerObj[key] = true;
+            });
+        });
+        header = Object.keys(headerObj);
+    }
+
+    if (isSingleRow && tableData.length === 1) {
+        // Don't create row if value is not defined for the header (key for objects)
+        header = header.filter(function (h) {
+            return tableData[0][h];
+        });
+    }
+
+    // Generate table
+    var htmlTable = '';
+    var cellArray = [];
+    var cellRow = [];
+    cellArray.push(cellRow);
+    header.forEach(function (key) {
+        cellRow.push('<th>' + (header_mapping[key] || key) + '</th>');
+    });
+    tableData.forEach(function (json) {
+        cellRow = [];
+        cellArray.push(cellRow);
+        header.forEach(function (key) {
+            var value = json[key];
+            if (value === undefined) {
+                value = '';
+            } else if (typeof value !== 'string') {
+                value = JSON.stringify(value);
+            }
+            cellRow.push('<td>' + value + '</td>');
+        });
+    });
+
+    var i, j;
+    if (isSingleRow && cellArray.length) {
+        // Transpose the array to show object as key-value pair instead of table
+        cellArray = cellArray[0].map(function(col, i) {
+            return cellArray.map(function(row) {
+                return row[i];
+            })
+        });
+    }
+
+    var newLine = '';
+    var indent = '';
+    if (pretty) {
+        newLine = '\n';
+        indent = '  ';
+    }
+    if (tableData.length) {
+        htmlTable += '<table id="' + tableId + '" class="' + tableClass + '" border="' + border + '" cellspacing="' + cellspacing + '" cellpadding="' + cellpadding + '">';
+        for (i = 0; i < cellArray.length; i++) {
+            htmlTable += newLine;
+            htmlTable += indent;
+            htmlTable += '<tr>';
+            for (j = 0; j < cellArray[i].length; j++) {
+                htmlTable += newLine;
+                htmlTable += indent;
+                htmlTable += indent;
+                htmlTable += cellArray[i][j];
+            }
+            htmlTable += newLine;
+            htmlTable += indent;
+            htmlTable += '</tr>';
+        }
+        htmlTable += newLine;
+        htmlTable += '</table>';
+    }
+    return htmlTable;
+}
+
+var html_tablify = {
+    tablify: tablify
+};
+
+module.exports = html_tablify;
+
+
+/***/ }),
+/* 1 */
 /***/ (function(module, exports, __webpack_require__) {
 
 /* WEBPACK VAR INJECTION */(function(global, module) {var __WEBPACK_AMD_DEFINE_RESULT__;/**
@@ -17156,17 +17274,17 @@
   }
 }.call(this));
 
-/* WEBPACK VAR INJECTION */}.call(exports, __webpack_require__(2), __webpack_require__(3)(module)))
+/* WEBPACK VAR INJECTION */}.call(exports, __webpack_require__(3), __webpack_require__(4)(module)))
 
 /***/ }),
-/* 1 */
+/* 2 */
 /***/ (function(module, __webpack_exports__, __webpack_require__) {
 
 "use strict";
 Object.defineProperty(__webpack_exports__, "__esModule", { value: true });
-/* harmony import */ var __WEBPACK_IMPORTED_MODULE_0_lodash__ = __webpack_require__(0);
+/* harmony import */ var __WEBPACK_IMPORTED_MODULE_0_lodash__ = __webpack_require__(1);
 /* harmony import */ var __WEBPACK_IMPORTED_MODULE_0_lodash___default = __webpack_require__.n(__WEBPACK_IMPORTED_MODULE_0_lodash__);
-/* harmony import */ var __WEBPACK_IMPORTED_MODULE_1_html_tablify__ = __webpack_require__(4);
+/* harmony import */ var __WEBPACK_IMPORTED_MODULE_1_html_tablify__ = __webpack_require__(0);
 /* harmony import */ var __WEBPACK_IMPORTED_MODULE_1_html_tablify___default = __webpack_require__.n(__WEBPACK_IMPORTED_MODULE_1_html_tablify__);
 
 
@@ -17223,6 +17341,32 @@ function loadItemViaId_promise(id) {
 	});
 }
 
+function getItemById_promise(tx, id) {
+    let store = tx.objectStore("Benchmark");
+    let items = [];
+	let index = store.index('id');
+
+    let cursorRequest = index.openCursor(IDBKeyRange.only(id));
+
+	return new Promise((resolve, reject) => {
+		cursorRequest.onerror = function(error) {
+			console.log(error);
+			reject(error);
+		};
+	
+		cursorRequest.onsuccess = function(evt) {                    
+			var cursor = evt.target.result;
+			if (cursor) {
+				items.push(cursor.value);
+				cursor.continue();
+			} else {
+				// no cursor means => we have read all data
+				resolve(items)
+			}
+		};
+	});
+}
+
 function getAllItems_promise(tx) {
     let store = tx.objectStore("Benchmark");
     let items = [];
@@ -17248,6 +17392,11 @@ function getAllItems_promise(tx) {
 	});
 }
 
+function scrollToBottom(id){
+   var div = document.getElementById(id);
+   div.scrollTop = div.scrollHeight - div.clientHeight;
+}
+
 function outputToDom(str) {
 	const t = document.createTextNode(str);
 
@@ -17256,6 +17405,8 @@ function outputToDom(str) {
 
 	// append line break
 	document.getElementById('output').appendChild(document.createElement('br'))
+
+	scrollToBottom('mainView');
 }
 
 function updateUIResultTable(data) {
@@ -17324,14 +17475,31 @@ function stringifyLogMessage(msg, paramArr) {
 })();
 
 // Open (or create) the database
-var open = indexedDB.open("MyDatabase", 2);
+var open = indexedDB.open("MyDatabase", 3);
+
+/**
+ * Contains a reference to the database
+ */
 var db = null;
 
 // Create the schema
 open.onupgradeneeded = function() {
     var db = open.result;
-    var store = db.createObjectStore("Benchmark", {keyPath: "id"});
-    var index = store.createIndex("prop1", "prop1");
+	var store = null;
+
+	try{
+		store = db.createObjectStore("Benchmark", {keyPath: "id"});
+	} catch( e ){
+		console.log('Removing old object store ...');
+
+		db.deleteObjectStore("Benchmark");
+
+		console.log('Creating new object store ...');
+		store = db.createObjectStore("Benchmark", {keyPath: "id"});
+	}
+
+    store.createIndex("id", "id");
+	store.createIndex("prop1", "prop1");
 };
 
 open.onsuccess = function() {
@@ -17433,13 +17601,53 @@ function writeAndReadBenchmarkRun(amountItems, amountProperties, testCaseIdStart
 			}).then(() => {
 
 			/**
-			 * "Writing" benchmark test case
+			 * "Reading" random samples db benchmark test case
 			 */
-			benchmarkTestRunner(db, (testCaseIdStartNumber + 1), 'TCInsert'+amountItems+'_'+amountProperties, 
-				'Reading '+amountItems+' entries with ' + amountProperties + ' attributes in indexedDB', (db) => {
+			benchmarkTestRunner(db, (testCaseIdStartNumber + 1), 'TCRead1_'+amountProperties+'_'+amountItems, 
+				'Reading a random entry with ' + amountProperties + ' attributes in indexedDB from db with '+
+				amountItems +' items ', (db) => {
 	
 				getNewestBenchmarkResultObjectForId(testCaseIdStartNumber + 1).items = amountItems;
 				getNewestBenchmarkResultObjectForId(testCaseIdStartNumber + 1).itemProp = amountProperties;
+
+				// preparation phase: do not measure time here
+				let tx = db.transaction("Benchmark", "readwrite");
+
+				console.log('preparation ended ... starting measurement at %s... ', Date());
+
+				// transaction has been created => start measuring
+				const startDate = Date.now();
+
+				const readId = Math.floor(Math.random() * amountProperties);
+
+				console.log("Reading item with id %d ...", readId);
+
+				// data items have been created => start measuring
+				getItemById_promise(tx, readId).then((itemArr) => {
+					console.log('Read %d items', itemArr.length);
+				});
+
+				return new Promise((resolve, reject) => {
+
+					tx.oncomplete = function() {
+						resolve(startDate);
+					};
+
+					tx.onerror = function () {
+						reject();
+					}
+
+				});
+			}).then(() => {
+
+			/**
+			 * "Reading" complete db benchmark test case
+			 */
+			benchmarkTestRunner(db, (testCaseIdStartNumber + 2), 'TCInsert'+amountItems+'_'+amountProperties, 
+				'Reading '+amountItems+' entries with ' + amountProperties + ' attributes in indexedDB', (db) => {
+	
+				getNewestBenchmarkResultObjectForId(testCaseIdStartNumber + 2).items = amountItems;
+				getNewestBenchmarkResultObjectForId(testCaseIdStartNumber + 2).itemProp = amountProperties;
 
 				// preparation phase: do not measure time here
 				let tx = db.transaction("Benchmark", "readwrite");
@@ -17475,15 +17683,16 @@ function writeAndReadBenchmarkRun(amountItems, amountProperties, testCaseIdStart
 
 			});
 		});
+		});
 	});
 }
 
 function runBenchmarkTestSequence() {
 	return new Promise((resolve, reject) => {
 		writeAndReadBenchmarkRun(2500,25,1,db).then(() => {
-			writeAndReadBenchmarkRun(2500,100,3,db).then(() => {
-				writeAndReadBenchmarkRun(5000,100,5,db).then(() => {
-					writeAndReadBenchmarkRun(10000,100,7,db).then(() => {
+			writeAndReadBenchmarkRun(2500,100,4,db).then(() => {
+				writeAndReadBenchmarkRun(5000,100,7,db).then(() => {
+					writeAndReadBenchmarkRun(10000,100,10,db).then(() => {
 						resolve();
 					});	
 				});
@@ -17577,7 +17786,7 @@ function benchmark() {
 }
 
 /***/ }),
-/* 2 */
+/* 3 */
 /***/ (function(module, exports) {
 
 var g;
@@ -17604,7 +17813,7 @@ module.exports = g;
 
 
 /***/ }),
-/* 3 */
+/* 4 */
 /***/ (function(module, exports) {
 
 module.exports = function(module) {
@@ -17629,124 +17838,6 @@ module.exports = function(module) {
 	}
 	return module;
 };
-
-
-/***/ }),
-/* 4 */
-/***/ (function(module, exports, __webpack_require__) {
-
-"use strict";
-/* jslint node: true */
-
-
-function isDefined(x) {
-    return x !== undefined && x !== null;
-}
-
-function tablify(options) {
-    options = options || {};
-    var tableData = options.data || [];
-    var header = options.header;
-    var border = isDefined(options.border) ? options.border : 1;
-    var cellspacing = isDefined(options.cellspacing) ? options.cellspacing : 0;
-    var cellpadding = isDefined(options.cellpadding) ? options.cellpadding : 0;
-    var tableId = options.table_id || 'tablify';
-    var tableClass = options.table_class || 'tablify';
-    var header_mapping = options.header_mapping || {};
-    var pretty = options.pretty;
-    if (pretty === undefined) {
-        pretty = true;
-    }
-    var isSingleRow = false;
-    if (!Array.isArray(tableData)) {
-        isSingleRow = true;
-        tableData = [tableData];
-    }
-
-    // If header exists in options use that else create it.
-    if (!Array.isArray(header)) {
-        var headerObj = {};
-        tableData.forEach(function (json) {
-            var keys = Object.keys(json);
-            keys.forEach(function (key) {
-                headerObj[key] = true;
-            });
-        });
-        header = Object.keys(headerObj);
-    }
-
-    if (isSingleRow && tableData.length === 1) {
-        // Don't create row if value is not defined for the header (key for objects)
-        header = header.filter(function (h) {
-            return tableData[0][h];
-        });
-    }
-
-    // Generate table
-    var htmlTable = '';
-    var cellArray = [];
-    var cellRow = [];
-    cellArray.push(cellRow);
-    header.forEach(function (key) {
-        cellRow.push('<th>' + (header_mapping[key] || key) + '</th>');
-    });
-    tableData.forEach(function (json) {
-        cellRow = [];
-        cellArray.push(cellRow);
-        header.forEach(function (key) {
-            var value = json[key];
-            if (value === undefined) {
-                value = '';
-            } else if (typeof value !== 'string') {
-                value = JSON.stringify(value);
-            }
-            cellRow.push('<td>' + value + '</td>');
-        });
-    });
-
-    var i, j;
-    if (isSingleRow && cellArray.length) {
-        // Transpose the array to show object as key-value pair instead of table
-        cellArray = cellArray[0].map(function(col, i) {
-            return cellArray.map(function(row) {
-                return row[i];
-            })
-        });
-    }
-
-    var newLine = '';
-    var indent = '';
-    if (pretty) {
-        newLine = '\n';
-        indent = '  ';
-    }
-    if (tableData.length) {
-        htmlTable += '<table id="' + tableId + '" class="' + tableClass + '" border="' + border + '" cellspacing="' + cellspacing + '" cellpadding="' + cellpadding + '">';
-        for (i = 0; i < cellArray.length; i++) {
-            htmlTable += newLine;
-            htmlTable += indent;
-            htmlTable += '<tr>';
-            for (j = 0; j < cellArray[i].length; j++) {
-                htmlTable += newLine;
-                htmlTable += indent;
-                htmlTable += indent;
-                htmlTable += cellArray[i][j];
-            }
-            htmlTable += newLine;
-            htmlTable += indent;
-            htmlTable += '</tr>';
-        }
-        htmlTable += newLine;
-        htmlTable += '</table>';
-    }
-    return htmlTable;
-}
-
-var html_tablify = {
-    tablify: tablify
-};
-
-module.exports = html_tablify;
 
 
 /***/ })
