@@ -1,6 +1,7 @@
 'use strict';
 
 import * as _ from 'lodash';
+import * as tablify from 'html-tablify';
 
 /**
  * Stores the gathered data results from the benchmark
@@ -85,6 +86,15 @@ function outputToDom(str) {
 
 	// append line break
 	document.getElementById('output').appendChild(document.createElement('br'))
+}
+
+function updateUIResultTable(data) {
+	const htmlContent = tablify.tablify({data:_.values(data), tableClass: 'table'});
+
+	document.getElementById('resultTable').innerHTML = htmlContent;
+
+	// workaround because "tableClass" attribute seems not to work
+	document.getElementById('tablify').className = 'table';
 }
 
 function clearDB_promise() {
@@ -182,7 +192,9 @@ function benchmarkTestRunner(db, idNumber, nameStr, descStr, testFunc) {
 	benchmarkResults[idNumber].push({
 		duration: null,
 		items: null,
-		itemProp: null
+		itemProp: null,
+		name: null,
+		description: null
 	});
 
 	return new Promise((resolve, reject) => {
@@ -192,6 +204,8 @@ function benchmarkTestRunner(db, idNumber, nameStr, descStr, testFunc) {
 			console.log("Test case %d took %d ms. Ended %s", idNumber, duration , Date());
 
 			getNewestBenchmarkResultObjectForId(idNumber).duration = duration;
+			getNewestBenchmarkResultObjectForId(idNumber).description = descStr;
+			getNewestBenchmarkResultObjectForId(idNumber).name = nameStr;
 			
 			resolve();
 		}).catch((error) => {
@@ -296,10 +310,10 @@ function writeAndReadBenchmarkRun(amountItems, amountProperties, testCaseIdStart
 
 function runBenchmarkTestSequence() {
 	return new Promise((resolve, reject) => {
-		writeAndReadBenchmarkRun(10000,25,1,db).then(() => {
-			writeAndReadBenchmarkRun(10000,100,3,db).then(() => {
-				writeAndReadBenchmarkRun(20000,100,5,db).then(() => {
-					writeAndReadBenchmarkRun(40000,100,7,db).then(() => {
+		writeAndReadBenchmarkRun(2500,25,1,db).then(() => {
+			writeAndReadBenchmarkRun(2500,100,3,db).then(() => {
+				writeAndReadBenchmarkRun(5000,100,5,db).then(() => {
+					writeAndReadBenchmarkRun(10000,100,7,db).then(() => {
 						resolve();
 					});	
 				});
@@ -314,6 +328,8 @@ function createStatisticObject(resultObj) {
 
 	for(const testcaseID of Object.keys(benchmarkResults)){
 		stats[testcaseID] = {
+			name: null,
+			description: null,
 			min: 100000000,
 			max: -1,
 			average: null
@@ -338,6 +354,14 @@ function createStatisticObject(resultObj) {
 		}
 
 		stats[testcaseID].average = (sum/durationListForCurrentID.length);
+
+		try{
+			stats[testcaseID].name = benchmarkResults[testcaseID][0].name;
+			stats[testcaseID].description = benchmarkResults[testcaseID][0].description;
+		} catch(e) {
+			console.log('Error while loading name and description of test case $d...', testcaseID);
+		}
+		
 	}
 
 	return stats;
@@ -365,7 +389,7 @@ function benchmark() {
 			console.log('>> Benchmark has finished...');
 			console.log('#########################################');
 
-			console.log(createStatisticObject(benchmarkResults));
+			updateUIResultTable(createStatisticObject(benchmarkResults));
 		});
 	});
 

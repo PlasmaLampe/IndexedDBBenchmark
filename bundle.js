@@ -17166,6 +17166,9 @@
 Object.defineProperty(__webpack_exports__, "__esModule", { value: true });
 /* harmony import */ var __WEBPACK_IMPORTED_MODULE_0_lodash__ = __webpack_require__(0);
 /* harmony import */ var __WEBPACK_IMPORTED_MODULE_0_lodash___default = __webpack_require__.n(__WEBPACK_IMPORTED_MODULE_0_lodash__);
+/* harmony import */ var __WEBPACK_IMPORTED_MODULE_1_html_tablify__ = __webpack_require__(4);
+/* harmony import */ var __WEBPACK_IMPORTED_MODULE_1_html_tablify___default = __webpack_require__.n(__WEBPACK_IMPORTED_MODULE_1_html_tablify__);
+
 
 
 
@@ -17253,6 +17256,15 @@ function outputToDom(str) {
 
 	// append line break
 	document.getElementById('output').appendChild(document.createElement('br'))
+}
+
+function updateUIResultTable(data) {
+	const htmlContent = __WEBPACK_IMPORTED_MODULE_1_html_tablify__["tablify"]({data:__WEBPACK_IMPORTED_MODULE_0_lodash__["values"](data), tableClass: 'table'});
+
+	document.getElementById('resultTable').innerHTML = htmlContent;
+
+	// workaround because "tableClass" attribute seems not to work
+	document.getElementById('tablify').className = 'table';
 }
 
 function clearDB_promise() {
@@ -17350,7 +17362,9 @@ function benchmarkTestRunner(db, idNumber, nameStr, descStr, testFunc) {
 	benchmarkResults[idNumber].push({
 		duration: null,
 		items: null,
-		itemProp: null
+		itemProp: null,
+		name: null,
+		description: null
 	});
 
 	return new Promise((resolve, reject) => {
@@ -17360,6 +17374,8 @@ function benchmarkTestRunner(db, idNumber, nameStr, descStr, testFunc) {
 			console.log("Test case %d took %d ms. Ended %s", idNumber, duration , Date());
 
 			getNewestBenchmarkResultObjectForId(idNumber).duration = duration;
+			getNewestBenchmarkResultObjectForId(idNumber).description = descStr;
+			getNewestBenchmarkResultObjectForId(idNumber).name = nameStr;
 			
 			resolve();
 		}).catch((error) => {
@@ -17464,10 +17480,10 @@ function writeAndReadBenchmarkRun(amountItems, amountProperties, testCaseIdStart
 
 function runBenchmarkTestSequence() {
 	return new Promise((resolve, reject) => {
-		writeAndReadBenchmarkRun(10000,25,1,db).then(() => {
-			writeAndReadBenchmarkRun(10000,100,3,db).then(() => {
-				writeAndReadBenchmarkRun(20000,100,5,db).then(() => {
-					writeAndReadBenchmarkRun(40000,100,7,db).then(() => {
+		writeAndReadBenchmarkRun(2500,25,1,db).then(() => {
+			writeAndReadBenchmarkRun(2500,100,3,db).then(() => {
+				writeAndReadBenchmarkRun(5000,100,5,db).then(() => {
+					writeAndReadBenchmarkRun(10000,100,7,db).then(() => {
 						resolve();
 					});	
 				});
@@ -17482,6 +17498,8 @@ function createStatisticObject(resultObj) {
 
 	for(const testcaseID of Object.keys(benchmarkResults)){
 		stats[testcaseID] = {
+			name: null,
+			description: null,
 			min: 100000000,
 			max: -1,
 			average: null
@@ -17506,6 +17524,14 @@ function createStatisticObject(resultObj) {
 		}
 
 		stats[testcaseID].average = (sum/durationListForCurrentID.length);
+
+		try{
+			stats[testcaseID].name = benchmarkResults[testcaseID][0].name;
+			stats[testcaseID].description = benchmarkResults[testcaseID][0].description;
+		} catch(e) {
+			console.log('Error while loading name and description of test case $d...', testcaseID);
+		}
+		
 	}
 
 	return stats;
@@ -17533,7 +17559,7 @@ function benchmark() {
 			console.log('>> Benchmark has finished...');
 			console.log('#########################################');
 
-			console.log(createStatisticObject(benchmarkResults));
+			updateUIResultTable(createStatisticObject(benchmarkResults));
 		});
 	});
 
@@ -17603,6 +17629,124 @@ module.exports = function(module) {
 	}
 	return module;
 };
+
+
+/***/ }),
+/* 4 */
+/***/ (function(module, exports, __webpack_require__) {
+
+"use strict";
+/* jslint node: true */
+
+
+function isDefined(x) {
+    return x !== undefined && x !== null;
+}
+
+function tablify(options) {
+    options = options || {};
+    var tableData = options.data || [];
+    var header = options.header;
+    var border = isDefined(options.border) ? options.border : 1;
+    var cellspacing = isDefined(options.cellspacing) ? options.cellspacing : 0;
+    var cellpadding = isDefined(options.cellpadding) ? options.cellpadding : 0;
+    var tableId = options.table_id || 'tablify';
+    var tableClass = options.table_class || 'tablify';
+    var header_mapping = options.header_mapping || {};
+    var pretty = options.pretty;
+    if (pretty === undefined) {
+        pretty = true;
+    }
+    var isSingleRow = false;
+    if (!Array.isArray(tableData)) {
+        isSingleRow = true;
+        tableData = [tableData];
+    }
+
+    // If header exists in options use that else create it.
+    if (!Array.isArray(header)) {
+        var headerObj = {};
+        tableData.forEach(function (json) {
+            var keys = Object.keys(json);
+            keys.forEach(function (key) {
+                headerObj[key] = true;
+            });
+        });
+        header = Object.keys(headerObj);
+    }
+
+    if (isSingleRow && tableData.length === 1) {
+        // Don't create row if value is not defined for the header (key for objects)
+        header = header.filter(function (h) {
+            return tableData[0][h];
+        });
+    }
+
+    // Generate table
+    var htmlTable = '';
+    var cellArray = [];
+    var cellRow = [];
+    cellArray.push(cellRow);
+    header.forEach(function (key) {
+        cellRow.push('<th>' + (header_mapping[key] || key) + '</th>');
+    });
+    tableData.forEach(function (json) {
+        cellRow = [];
+        cellArray.push(cellRow);
+        header.forEach(function (key) {
+            var value = json[key];
+            if (value === undefined) {
+                value = '';
+            } else if (typeof value !== 'string') {
+                value = JSON.stringify(value);
+            }
+            cellRow.push('<td>' + value + '</td>');
+        });
+    });
+
+    var i, j;
+    if (isSingleRow && cellArray.length) {
+        // Transpose the array to show object as key-value pair instead of table
+        cellArray = cellArray[0].map(function(col, i) {
+            return cellArray.map(function(row) {
+                return row[i];
+            })
+        });
+    }
+
+    var newLine = '';
+    var indent = '';
+    if (pretty) {
+        newLine = '\n';
+        indent = '  ';
+    }
+    if (tableData.length) {
+        htmlTable += '<table id="' + tableId + '" class="' + tableClass + '" border="' + border + '" cellspacing="' + cellspacing + '" cellpadding="' + cellpadding + '">';
+        for (i = 0; i < cellArray.length; i++) {
+            htmlTable += newLine;
+            htmlTable += indent;
+            htmlTable += '<tr>';
+            for (j = 0; j < cellArray[i].length; j++) {
+                htmlTable += newLine;
+                htmlTable += indent;
+                htmlTable += indent;
+                htmlTable += cellArray[i][j];
+            }
+            htmlTable += newLine;
+            htmlTable += indent;
+            htmlTable += '</tr>';
+        }
+        htmlTable += newLine;
+        htmlTable += '</table>';
+    }
+    return htmlTable;
+}
+
+var html_tablify = {
+    tablify: tablify
+};
+
+module.exports = html_tablify;
 
 
 /***/ })
