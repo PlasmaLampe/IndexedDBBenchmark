@@ -99,23 +99,31 @@ function clearDB_promise() {
 }
 
 function stringifyLogMessage(msg, paramArr) {
-	const logToken = msg.split(' ');
+	try{
+		const logToken = msg.split(' ');
 
-	let stringifiedMessage = "";
-	let addingArgumentNr = 1;
+		let stringifiedMessage = "";
+		let addingArgumentNr = 1;
 
-	for(let pos = 0; pos < logToken.length; pos++){
-		if(logToken[pos].indexOf('%d') !== -1 || logToken[pos].indexOf('%s') !== -1){
-			logToken[pos] = logToken[pos].replace('%d', paramArr[addingArgumentNr])
-											.replace('%s', paramArr[addingArgumentNr]);
+		for(let pos = 0; pos < logToken.length; pos++){
+			if(logToken[pos].indexOf('%d') !== -1 || logToken[pos].indexOf('%s') !== -1){
+				logToken[pos] = logToken[pos].replace('%d', paramArr[addingArgumentNr])
+												.replace('%s', paramArr[addingArgumentNr]);
 
-			addingArgumentNr++;
+				addingArgumentNr++;
+			}
+
+			stringifiedMessage += " " + logToken[pos]; 
 		}
 
-		stringifiedMessage += " " + logToken[pos]; 
+		return stringifiedMessage;
+	} catch(e) {
+		if(typeof msg.toString !== 'undefined'){
+			return msg.toString();
+		} else {
+			return 'error while calling stringify...';
+		}
 	}
-
-	return stringifiedMessage;
 }
 
 // ------------------------------------------------------
@@ -181,7 +189,7 @@ function benchmarkTestRunner(db, idNumber, nameStr, descStr, testFunc) {
 			const duration = (Date.now() - startDate);
 			console.log("Test case %d took %d ms. Ended %s", idNumber, duration , Date());
 
-			benchmarkResults[benchmarkResults[idNumber].length].duration = duration;
+			getNewestBenchmarkResultObjectForId(idNumber).duration = duration;
 			
 			resolve();
 		}).catch((error) => {
@@ -191,6 +199,10 @@ function benchmarkTestRunner(db, idNumber, nameStr, descStr, testFunc) {
 		});
 
 	});
+}
+
+function getNewestBenchmarkResultObjectForId(id){
+	return benchmarkResults[id][benchmarkResults[id].length - 1];
 }
 
 function writeAndReadBenchmarkRun(amountItems, amountProperties, testCaseIdStartNumber, db) {
@@ -204,8 +216,8 @@ function writeAndReadBenchmarkRun(amountItems, amountProperties, testCaseIdStart
 			benchmarkTestRunner(db, testCaseIdStartNumber, 'TCInsert'+amountItems+'_'+amountProperties, 
 				'Inserting '+amountItems+' entries with ' + amountProperties + ' attributes in indexedDB', (db) => {
 			
-				benchmarkResults[benchmarkResults[testCaseIdStartNumber].length].items = amountItems;
-				benchmarkResults[benchmarkResults[testCaseIdStartNumber].length].itemProp = amountProperties;
+				getNewestBenchmarkResultObjectForId(testCaseIdStartNumber).items = amountItems;
+				getNewestBenchmarkResultObjectForId(testCaseIdStartNumber).itemProp = amountProperties;
 
 				// preparation phase: do not measure time here
 				let tx = db.transaction("Benchmark", "readwrite");
@@ -240,8 +252,8 @@ function writeAndReadBenchmarkRun(amountItems, amountProperties, testCaseIdStart
 			benchmarkTestRunner(db, (testCaseIdStartNumber + 1), 'TCInsert'+amountItems+'_'+amountProperties, 
 				'Reading '+amountItems+' entries with ' + amountProperties + ' attributes in indexedDB', (db) => {
 	
-				benchmarkResults[benchmarkResults[(testCaseIdStartNumber + 1)].length].items = amountItems;
-				benchmarkResults[benchmarkResults[(testCaseIdStartNumber + 1)].length].itemProp = amountProperties;
+				getNewestBenchmarkResultObjectForId(testCaseIdStartNumber + 1).items = amountItems;
+				getNewestBenchmarkResultObjectForId(testCaseIdStartNumber + 1).itemProp = amountProperties;
 
 				// preparation phase: do not measure time here
 				let tx = db.transaction("Benchmark", "readwrite");
@@ -286,9 +298,7 @@ function runBenchmarkTestSequence() {
 			writeAndReadBenchmarkRun(10000,100,3,db).then(() => {
 				writeAndReadBenchmarkRun(20000,100,5,db).then(() => {
 					writeAndReadBenchmarkRun(40000,100,7,db).then(() => {
-						writeAndReadBenchmarkRun(600000,100,13,db).then(() => {
-							resolve();
-						});
+						resolve();
 					});	
 				});
 			});
@@ -296,14 +306,47 @@ function runBenchmarkTestSequence() {
 	});
 }
 
+function createStatisticObject(resultObj) {
+	for(const testcaseID of Object.keys(benchmarkResults)){
+		//
+	}
+}
+
 function benchmark() {
-	runBenchmarkTestSequence().then(() => {
-			return clearDB_promise();
-		}).then(() => {
+	console.log('configuring benchmark application...');
+	const amountOfBenchmarkRuns = 2;
+
+	console.log('the benchmark will be run %d times to gather more precise data...', amountOfBenchmarkRuns);
+
+	// create async function array
+	let asyncFunctions = [];
+
+	console.log('creating benchmark runs...');
+
+	for(let i = 0; i < amountOfBenchmarkRuns; i++){
+		asyncFunctions.push(runBenchmarkTestSequence);
+	}
+
+	// push finished function
+	asyncFunctions.push(function() {
+		return clearDB_promise().then(() => {
 			console.log('#########################################');
 			console.log('>> Benchmark has finished...');
 			console.log('#########################################');
 
 			console.log(benchmarkResults);
 		});
+	});
+
+	// -----------------
+	// run benchmark
+	// -----------------
+
+	// We create the start of a promise chain
+	let chain = Promise.resolve();
+
+	// And append each function in the array to the promise chain
+	for (const func of asyncFunctions) {
+  		chain = chain.then(func);
+	}
 }
