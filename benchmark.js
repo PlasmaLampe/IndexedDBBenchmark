@@ -405,7 +405,11 @@ function runBenchmarkTestSequence() {
 			writeAndReadBenchmarkRun(2500,100,4,db).then(() => {
 				writeAndReadBenchmarkRun(5000,100,7,db).then(() => {
 					writeAndReadBenchmarkRun(10000,100,10,db).then(() => {
-						resolve();
+						writeAndReadBenchmarkRun(20000,100,13,db).then(() => {
+							writeAndReadBenchmarkRun(40000,100,16,db).then(() => {
+								resolve();
+							});
+						});	
 					});	
 				});
 			});
@@ -460,7 +464,7 @@ function createStatisticObject(resultObj) {
 
 function benchmark() {
 	console.log('configuring benchmark application...');
-	const amountOfBenchmarkRuns = 2;
+	const amountOfBenchmarkRuns = 5;
 
 	console.log('the benchmark will be run %d times to gather more precise data...', amountOfBenchmarkRuns);
 
