@@ -17481,15 +17481,39 @@ function createStatisticObject(resultObj) {
 	let stats = {};
 
 	for(const testcaseID of Object.keys(benchmarkResults)){
-		console.log(__WEBPACK_IMPORTED_MODULE_0_lodash__["map"](benchmarkResults[testcaseID], (resultItem) => {
+		stats[testcaseID] = {
+			min: 100000000,
+			max: -1,
+			average: null
+		};
+		
+		const durationListForCurrentID = __WEBPACK_IMPORTED_MODULE_0_lodash__["map"](benchmarkResults[testcaseID], (resultItem) => {
 			return resultItem.duration;
-		}));
+		});
+
+		let sum = 0;
+
+		for(const value of durationListForCurrentID){
+			sum += value;
+
+			if(value > stats[testcaseID].max) {
+				stats[testcaseID].max = value;
+			}
+
+			if(value <= stats[testcaseID].min) {
+				stats[testcaseID].min = value;
+			}
+		}
+
+		stats[testcaseID].average = (sum/durationListForCurrentID.length);
 	}
+
+	return stats;
 }
 
 function benchmark() {
 	console.log('configuring benchmark application...');
-	const amountOfBenchmarkRuns = 1;
+	const amountOfBenchmarkRuns = 2;
 
 	console.log('the benchmark will be run %d times to gather more precise data...', amountOfBenchmarkRuns);
 
@@ -17509,7 +17533,7 @@ function benchmark() {
 			console.log('>> Benchmark has finished...');
 			console.log('#########################################');
 
-			console.log(benchmarkResults);
+			console.log(createStatisticObject(benchmarkResults));
 		});
 	});
 
