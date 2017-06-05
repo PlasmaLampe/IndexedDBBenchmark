@@ -1,0 +1,25 @@
+{
+  "name": "indexed_db_benchmark",
+  "version": "1.0.0",
+  "description": "A simple benchmark for the indexedDB",
+  "main": "benchmark.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/PlasmaLampe/IndexedDBBenchmark.git"
+  },
+  "keywords": [
+    "Benchmark"
+  ],
+  "author": "joerg amelunxen",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/PlasmaLampe/IndexedDBBenchmark/issues"
+  },
+  "homepage": "https://github.com/PlasmaLampe/IndexedDBBenchmark#readme",
+  "dependencies": {
+    "lodash": "^4.17.4"
+  }
+}
