@@ -1,5 +1,9 @@
 'use strict';
 
+/**
+ * Stores the gathered data results from the benchmark
+ */
+let benchmarkResults = {};
 
 // ------------------------------------------------------
 // Helper and utility functions
@@ -161,10 +165,23 @@ function benchmarkTestRunner(db, idNumber, nameStr, descStr, testFunc) {
 	console.log("");
 	console.log("## Running Test Case %d (%s): %s", idNumber, nameStr, descStr);
 
+	if(typeof benchmarkResults[idNumber] === 'undefined'){
+		benchmarkResults[idNumber] = [];
+	}
+
+	benchmarkResults[idNumber].push({
+		duration: null,
+		items: null,
+		itemProp: null
+	});
+
 	return new Promise((resolve, reject) => {
 	
 		testFunc(db).then((startDate) => {
-			console.log("Test case %d took %d ms. Ended %s", idNumber, (Date.now() - startDate), Date());
+			const duration = (Date.now() - startDate);
+			console.log("Test case %d took %d ms. Ended %s", idNumber, duration , Date());
+
+			benchmarkResults[benchmarkResults[idNumber].length].duration = duration;
 			
 			resolve();
 		}).catch((error) => {
@@ -177,6 +194,7 @@ function benchmarkTestRunner(db, idNumber, nameStr, descStr, testFunc) {
 }
 
 function writeAndReadBenchmarkRun(amountItems, amountProperties, testCaseIdStartNumber, db) {
+
 	return new Promise((resolve, reject) => {
 		clearDB_promise().then(() => {
 
@@ -186,6 +204,9 @@ function writeAndReadBenchmarkRun(amountItems, amountProperties, testCaseIdStart
 			benchmarkTestRunner(db, testCaseIdStartNumber, 'TCInsert'+amountItems+'_'+amountProperties, 
 				'Inserting '+amountItems+' entries with ' + amountProperties + ' attributes in indexedDB', (db) => {
 			
+				benchmarkResults[benchmarkResults[testCaseIdStartNumber].length].items = amountItems;
+				benchmarkResults[benchmarkResults[testCaseIdStartNumber].length].itemProp = amountProperties;
+
 				// preparation phase: do not measure time here
 				let tx = db.transaction("Benchmark", "readwrite");
 				const items = createJSONStructureArr(amountProperties,amountItems,0);
@@ -219,6 +240,9 @@ function writeAndReadBenchmarkRun(amountItems, amountProperties, testCaseIdStart
 			benchmarkTestRunner(db, (testCaseIdStartNumber + 1), 'TCInsert'+amountItems+'_'+amountProperties, 
 				'Reading '+amountItems+' entries with ' + amountProperties + ' attributes in indexedDB', (db) => {
 	
+				benchmarkResults[benchmarkResults[(testCaseIdStartNumber + 1)].length].items = amountItems;
+				benchmarkResults[benchmarkResults[(testCaseIdStartNumber + 1)].length].itemProp = amountProperties;
+
 				// preparation phase: do not measure time here
 				let tx = db.transaction("Benchmark", "readwrite");
 
@@ -256,25 +280,30 @@ function writeAndReadBenchmarkRun(amountItems, amountProperties, testCaseIdStart
 	});
 }
 
-function benchmark(db) {
-
+function runBenchmarkTestSequence() {
+	return new Promise((resolve, reject) => {
 		writeAndReadBenchmarkRun(10000,25,1,db).then(() => {
 			writeAndReadBenchmarkRun(10000,100,3,db).then(() => {
 				writeAndReadBenchmarkRun(20000,100,5,db).then(() => {
 					writeAndReadBenchmarkRun(40000,100,7,db).then(() => {
-						writeAndReadBenchmarkRun(60000,100,9,db).then(() => {
-							writeAndReadBenchmarkRun(60000,150,11,db).then(() => {
-								writeAndReadBenchmarkRun(600000,200,13,db).then(() => {
-									clearDB_promise();
-								}).then(() => {
-									console.log('#########################################');
-									console.log('>> Benchmark has finished...');
-									console.log('#########################################');
-								});
-							});
+						writeAndReadBenchmarkRun(600000,100,13,db).then(() => {
+							resolve();
 						});
-					});
-				});	
+					});	
+				});
 			});
+		});
+	});
+}
+
+function benchmark() {
+	runBenchmarkTestSequence().then(() => {
+			return clearDB_promise();
+		}).then(() => {
+			console.log('#########################################');
+			console.log('>> Benchmark has finished...');
+			console.log('#########################################');
+
+			console.log(benchmarkResults);
 		});
 }
