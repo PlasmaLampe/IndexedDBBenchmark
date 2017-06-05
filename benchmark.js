@@ -1,5 +1,7 @@
 'use strict';
 
+import * as _ from 'lodash';
+
 /**
  * Stores the gathered data results from the benchmark
  */
@@ -307,14 +309,19 @@ function runBenchmarkTestSequence() {
 }
 
 function createStatisticObject(resultObj) {
+
+	let stats = {};
+
 	for(const testcaseID of Object.keys(benchmarkResults)){
-		//
+		console.log(_.map(benchmarkResults[testcaseID], (resultItem) => {
+			return resultItem.duration;
+		}));
 	}
 }
 
 function benchmark() {
 	console.log('configuring benchmark application...');
-	const amountOfBenchmarkRuns = 2;
+	const amountOfBenchmarkRuns = 1;
 
 	console.log('the benchmark will be run %d times to gather more precise data...', amountOfBenchmarkRuns);
 

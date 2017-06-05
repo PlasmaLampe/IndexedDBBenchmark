@@ -21,5 +21,8 @@
   "homepage": "https://github.com/PlasmaLampe/IndexedDBBenchmark#readme",
   "dependencies": {
     "lodash": "^4.17.4"
+  },
+  "devDependencies": {
+    "babel-loader": "^7.0.0"
   }
 }

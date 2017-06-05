@@ -2,7 +2,8 @@
 The small project is used to check the performance of the indexedDB in various situations
 
 ## To use the benchmark
-* Just clone the repo and run the index.html file
+* Just clone the repo and run npm install (and open the index.html)
+* Run webpack --watch to recompile the bundle.js after changing something at the code
 * The UI output will freeze during the benchmark a couple of times
 * This happens because the code is single threaded and, thus, calls with heavy resource demand (e.g., the db calls) block the UI while they are executed
 * The output is also written to the web console. This is up-to-date the whole time during the benchmarking process.
