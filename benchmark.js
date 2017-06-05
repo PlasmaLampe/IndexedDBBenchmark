@@ -144,11 +144,9 @@ open.onsuccess = function() {
     // open database
     db = open.result;
 
-	console.log('DB connection open...');
-
-    clearDB_promise().then(() => {
-    	benchmark(db);
-    });
+	console.log('Benchmarking DB connection is open...');
+	console.log('Starting benchmark...')
+	benchmark(db);
 
     // Close the db when the transaction is done
     //tx.oncomplete = function() {
@@ -178,279 +176,105 @@ function benchmarkTestRunner(db, idNumber, nameStr, descStr, testFunc) {
 	});
 }
 
+function writeAndReadBenchmarkRun(amountItems, amountProperties, testCaseIdStartNumber, db) {
+	return new Promise((resolve, reject) => {
+		clearDB_promise().then(() => {
+
+			/**
+			 * "Writing" benchmark test case
+			 */
+			benchmarkTestRunner(db, testCaseIdStartNumber, 'TCInsert'+amountItems+'_'+amountProperties, 
+				'Inserting '+amountItems+' entries with ' + amountProperties + ' attributes in indexedDB', (db) => {
+			
+				// preparation phase: do not measure time here
+				let tx = db.transaction("Benchmark", "readwrite");
+				const items = createJSONStructureArr(amountProperties,amountItems,0);
+
+				console.log('preparation ended ... starting measurement at %s... ', Date());
+
+				// data items have been created => start measuring
+				const startDate = Date.now();
+
+				for(const item of items){
+					storeInThisTransaction(tx, item);
+				}
+
+				return new Promise((resolve, reject) => {
+
+					tx.oncomplete = function() {
+						resolve(startDate);
+					};
+
+					tx.onerror = function () {
+						reject();
+					}
+
+				});
+
+			}).then(() => {
+
+			/**
+			 * "Writing" benchmark test case
+			 */
+			benchmarkTestRunner(db, (testCaseIdStartNumber + 1), 'TCInsert'+amountItems+'_'+amountProperties, 
+				'Reading '+amountItems+' entries with ' + amountProperties + ' attributes in indexedDB', (db) => {
+	
+				// preparation phase: do not measure time here
+				let tx = db.transaction("Benchmark", "readwrite");
+
+				console.log('preparation ended ... starting measurement at %s... ', Date());
+
+				// transaction has been created => start measuring
+				const startDate = Date.now();
+
+				// data items have been created => start measuring
+				getAllItems_promise(tx).then((itemArr) => {
+					console.log('Read %d items', itemArr.length);
+				});
+
+				return new Promise((resolve, reject) => {
+
+					tx.oncomplete = function() {
+						resolve(startDate);
+					};
+
+					tx.onerror = function () {
+						reject();
+					}
+
+				});
+			}).then(() => {
+				
+				clearDB_promise().then(() => {
+					resolve();
+				});
+				
+			});
+
+			});
+		});
+	});
+}
+
 function benchmark(db) {
 
-	benchmarkTestRunner(db, 1, 'TCInsert10000_25', 'Inserting 10.000 entries with 25 attributes in indexedDB', (db) => {
-		// preparation phase: do not measure time here
-		let tx = db.transaction("Benchmark", "readwrite");
-		const items = createJSONStructureArr(25,10000,0);
-
-		console.log('preparation ended ... starting measurement at %s... ', Date());
-
-		// data items have been created => start measuring
-		const startDate = Date.now();
-
-		for(const item of items){
-			storeInThisTransaction(tx, item);
-		}
-
-		return new Promise((resolve, reject) => {
-
-			tx.oncomplete = function() {
-				resolve(startDate);
-			};
-
-			tx.onerror = function () {
-				reject();
-			}
-
-		});
-
-	}).then(() => {
-
-		return benchmarkTestRunner(db, 2, 'TCRead10000_25', 'Reading 10.000 entries with 25 attributes in indexedDB', (db) => {
-			// preparation phase: do not measure time here
-			let tx = db.transaction("Benchmark", "readwrite");
-
-			console.log('preparation ended ... starting measurement at %s... ', Date());
-
-			// transaction has been created => start measuring
-			const startDate = Date.now();
-
-			// data items have been created => start measuring
-			getAllItems_promise(tx).then((itemArr) => {
-				console.log('Read %d items', itemArr.length);
-			});
-
-			return new Promise((resolve, reject) => {
-
-				tx.oncomplete = function() {
-					resolve(startDate);
-				};
-
-				tx.onerror = function () {
-					reject();
-				}
-
+		writeAndReadBenchmarkRun(10000,25,1,db).then(() => {
+			writeAndReadBenchmarkRun(10000,100,3,db).then(() => {
+				writeAndReadBenchmarkRun(20000,100,5,db).then(() => {
+					writeAndReadBenchmarkRun(40000,100,7,db).then(() => {
+						writeAndReadBenchmarkRun(60000,100,9,db).then(() => {
+							writeAndReadBenchmarkRun(60000,150,11,db).then(() => {
+								writeAndReadBenchmarkRun(600000,200,13,db).then(() => {
+									clearDB_promise();
+								}).then(() => {
+									console.log('#########################################');
+									console.log('>> Benchmark has finished...');
+									console.log('#########################################');
+								});
+							});
+						});
+					});
+				});	
 			});
 		});
-
-	}).then(() => {
-		return clearDB_promise();
-	}).then(() => {
-
-		return benchmarkTestRunner(db, 3, 'TCInsert10000_100', 'Inserting 10.000 entries with 100 attributes in indexedDB', (db) => {
-			// preparation phase: do not measure time here
-			let tx = db.transaction("Benchmark", "readwrite");
-			const items = createJSONStructureArr(100,10000,0);
-
-			console.log('preparation ended ... starting measurement at %s... ', Date());
-
-			// data items have been created => start measuring
-			const startDate = Date.now();
-
-			for(const item of items){
-				storeInThisTransaction(tx, item);
-			}
-
-			return new Promise((resolve, reject) => {
-
-				tx.oncomplete = function() {
-					resolve(startDate);
-				};
-
-				tx.onerror = function () {
-					reject();
-				}
-
-			});
-
-		});
-	}).then(() => {
-		return clearDB_promise();
-	}).then(() => {
-
-		return benchmarkTestRunner(db, 4, 'TCInsert20000_100', 'Inserting 20.000 entries with 100 attributes in indexedDB', (db) => {
-			// preparation phase: do not measure time here
-			let tx = db.transaction("Benchmark", "readwrite");
-			const items = createJSONStructureArr(100,20000,0);
-
-			console.log('preparation ended ... starting measurement at %s... ', Date());
-
-			// data items have been created => start measuring
-			const startDate = Date.now();
-
-			for(const item of items){
-				storeInThisTransaction(tx, item);
-			}
-
-			return new Promise((resolve, reject) => {
-
-				tx.oncomplete = function() {
-					resolve(startDate);
-				};
-
-				tx.onerror = function () {
-					reject();
-				}
-
-			});
-
-		});
-	}).then(() => {
-
-		return benchmarkTestRunner(db, 5, 'TCRead20000_100', 'Reading 20.0000 entries with 100 attributes in indexedDB', (db) => {
-			// preparation phase: do not measure time here
-			let tx = db.transaction("Benchmark", "readwrite");
-
-			console.log('preparation ended ... starting measurement at %s... ', Date());
-
-			// transaction has been created => start measuring
-			const startDate = Date.now();
-
-			// data items have been created => start measuring
-			getAllItems_promise(tx).then((itemArr) => {
-				console.log('Read %d items', itemArr.length);
-			});
-
-			return new Promise((resolve, reject) => {
-
-				tx.oncomplete = function() {
-					resolve(startDate);
-				};
-
-				tx.onerror = function () {
-					reject();
-				}
-
-			});
-		});
-
-	}).then(() => {
-		return clearDB_promise();
-	}).then(() => {
-
-		return benchmarkTestRunner(db, 6, 'TCInsert50000_100', 'Inserting 50.000 entries with 100 attributes in indexedDB', (db) => {
-			// preparation phase: do not measure time here
-			let tx = db.transaction("Benchmark", "readwrite");
-			const items = createJSONStructureArr(100,50000,0);
-
-			console.log('preparation ended ... starting measurement at %s... ', Date());
-
-			// data items have been created => start measuring
-			const startDate = Date.now();
-
-			for(const item of items){
-				storeInThisTransaction(tx, item);
-			}
-
-			return new Promise((resolve, reject) => {
-
-				tx.oncomplete = function() {
-					resolve(startDate);
-				};
-
-				tx.onerror = function () {
-					reject();
-				}
-
-			});
-
-		});
-	}).then(() => {
-
-		return benchmarkTestRunner(db, 7, 'TCRead50000_100', 'Reading 50.0000 entries with 100 attributes in indexedDB', (db) => {
-			// preparation phase: do not measure time here
-			let tx = db.transaction("Benchmark", "readwrite");
-
-			console.log('preparation ended ... starting measurement at %s... ', Date());
-
-			// transaction has been created => start measuring
-			const startDate = Date.now();
-
-			// data items have been created => start measuring
-			getAllItems_promise(tx).then((itemArr) => {
-				console.log('Read %d items', itemArr.length);
-			});
-
-			return new Promise((resolve, reject) => {
-
-				tx.oncomplete = function() {
-					resolve(startDate);
-				};
-
-				tx.onerror = function () {
-					reject();
-				}
-
-			});
-		});
-
-	}).then(() => {
-		return clearDB_promise();
-	}).then(() => {
-
-		return benchmarkTestRunner(db, 8, 'TCInsert80000_100', 'Inserting 80.000 entries with 100 attributes in indexedDB', (db) => {
-			// preparation phase: do not measure time here
-			let tx = db.transaction("Benchmark", "readwrite");
-			const items = createJSONStructureArr(100,80000,0);
-
-			console.log('preparation ended ... starting measurement at %s... ', Date());
-
-			// data items have been created => start measuring
-			const startDate = Date.now();
-
-			for(const item of items){
-				storeInThisTransaction(tx, item);
-			}
-
-			return new Promise((resolve, reject) => {
-
-				tx.oncomplete = function() {
-					resolve(startDate);
-				};
-
-				tx.onerror = function () {
-					reject();
-				}
-
-			});
-
-		});
-	}).then(() => {
-
-		return benchmarkTestRunner(db, 9, 'TCRead80000_100', 'Reading 80.0000 entries with 100 attributes in indexedDB', (db) => {
-			// preparation phase: do not measure time here
-			let tx = db.transaction("Benchmark", "readwrite");
-
-			console.log('preparation ended ... starting measurement at %s... ', Date());
-
-			// transaction has been created => start measuring
-			const startDate = Date.now();
-
-			// data items have been created => start measuring
-			getAllItems_promise(tx).then((itemArr) => {
-				console.log('Read %d items', itemArr.length);
-			});
-
-			return new Promise((resolve, reject) => {
-
-				tx.oncomplete = function() {
-					resolve(startDate);
-				};
-
-				tx.onerror = function () {
-					reject();
-				}
-
-			});
-		});
-
-	}).then(() => {
-		return clearDB_promise();
-	}).then(() => {
-		console.log('#########################################');
-		console.log('>> Benchmark has finished...');
-		console.log('#########################################');
-	});
 }
